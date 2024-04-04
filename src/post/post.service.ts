@@ -1,23 +1,41 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Post } from './entities/post.entity';
-import {CreatePostDto} from "./dto/create-post.dto";
+import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 
 @Injectable()
 export class PostService {
-    private readonly posts: Post[] = [];
-    private idCounter = 1;
+  constructor(
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+  ) {}
 
-    create(createPostDto: CreatePostDto): Post {
-        const post: Post = {
-            id: this.idCounter++,
-            ...createPostDto,
-        };
-        this.posts.push(post);
-        return post;
+  async create(createPostDto: CreatePostDto): Promise<Post> {
+    const post = this.postRepository.create(createPostDto);
+    return await this.postRepository.save(post);
+  }
+
+  async findAll(): Promise<Post[]> {
+    return await this.postRepository.find();
+  }
+
+  async findOne(id: number): Promise<Post> {
+    const post = await this.postRepository.findOne({ where: { id } });
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
     }
+    return post;
+  }
 
-    findAll(): Post[] {
-        return this.posts;
-    }
+  async update(id: number, updatePostDto: UpdatePostDto): Promise<Post> {
+    const post = await this.findOne(id);
+    return this.postRepository.save({ ...post, ...updatePostDto });
+  }
 
+  async remove(id: number): Promise<void> {
+    const post = await this.findOne(id);
+    await this.postRepository.remove(post);
+  }
 }
